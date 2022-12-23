@@ -3,6 +3,7 @@ package io.github.kidofcubes;
 import euphoria.types.Message;
 import euphoria.types.SessionView;
 import euphoria.types.Snowflake;
+import it.unimi.dsi.fastutil.Pair;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.TextColor;
@@ -47,50 +48,30 @@ public class ChatManager implements Listener {
     static Map<Player,Map<Integer,List<Object>>> playerMessagePacketCache = new HashMap<>();
 
     static List<Map.Entry<Message, Integer>> bridgedMessages = new ArrayList<>(); //key is parent of messages, value.first is parent message
-//    static List<Map.Entry<Message,Integer>> bridgedMessages2 = new ArrayList<>(); //int is depth of message
-
     static Map<CommandSender,Snowflake> cursorLocation = new HashMap<>(); //value is parent of thread im on
+
     public static EuphBridgeEuphoriaBot botInstance;
-//ChatColor.of(Color.getHSBColor((float)(Math.random()*10000),(float)Math.random(),(float)Math.random())).toString()
     public static final String threadTabber = "   ";
 
     public ChatManager(EuphBridgeEuphoriaBot botInstance){
         ChatManager.botInstance =botInstance;
     }
 
-    public static void onEuphBridgeChat(Message message){
-        if(message.parent==null) {
-            message.parent=rootSnowflake;
-        }
-        int depth = -5;
-        for(int i=0;i<bridgedMessages.size();i++){
-            if(bridgedMessages.get(i).getValue()<depth&&depth!=-5){
-                bridgedMessages.add(i,new AbstractMap.SimpleEntry<>(message,depth));
-                depth = -4;
-                break;
-            }
-            if(bridgedMessages.get(i).getKey().id==message.parent){
-                depth = bridgedMessages.get(i).getValue()+1;
-            }
-        }
-        if(depth!=-5&&depth!=-4){
-            bridgedMessages.add(new AbstractMap.SimpleEntry<>(message,depth));
-        }
-
-//        bridgedMessages2.add(new AbstractMap.SimpleEntry<>(message,getDepthOfMessage(message)));
-        updateAllChats();
-    }
-
     public static void updateAllChats(){
         Bukkit.getServer().getOnlinePlayers().forEach(ChatManager::updateChat);
     }
 
-    public static int getEndOfThread(Snowflake id){
+    /**
+     *
+     * @param id
+     * @return index, depth
+     */
+    public static Map.Entry<Integer,Integer> getEndOfThread(Snowflake id){
         System.out.println("looking for "+id.toString());
         for(int i=bridgedMessages.size()-1;i>=0;i--){
             System.out.println("found "+bridgedMessages.get(i).getKey().parent+" while looking for "+id);
             if(bridgedMessages.get(i).getKey().id.equals(id)){
-                return i;
+                return new AbstractMap.SimpleEntry<>(i,bridgedMessages.get(i).getValue()+1);
             }
             if(bridgedMessages.get(i).getKey().parent.equals(id)){
                 int foundIndex = bridgedMessages.size()-1;
@@ -101,61 +82,57 @@ public class ChatManager implements Listener {
                     }
                 }
                 System.out.println("actually found "+id);
-                return foundIndex;
+                return new AbstractMap.SimpleEntry<>(foundIndex,bridgedMessages.get(i).getValue());
             }
         }
-        return -1;
+        return new AbstractMap.SimpleEntry<>(-1,-69);
     }
 
 
     public static void updateChat(CommandSender player){
 //            cursorLocation.putIfAbsent(player,1000);
 
-        int indexof = getEndOfThread(cursorLocation.get(player));
-        System.out.println("indexof is "+indexof+" start is "+Math.max(indexof-100,1)+" and end is "+Math.min(indexof+1,bridgedMessages.size()));
+        Map.Entry<Integer,Integer> endOfThread = getEndOfThread(cursorLocation.get(player));
+//        System.out.println("indexof is "+endOfThread.getKey()+" start is "+Math.max(endOfThread.getKey()-100,1)+" and end is "+Math.min(endOfThread.getValue()+1,bridgedMessages.size()));
         for(int i=0;i<bridgedMessages.size();i++){
             System.out.println("bridgedMessages["+i+"]="+bridgedMessages.get(i).getKey().id+", "+bridgedMessages.get(i).getValue());
         }
         List<Map.Entry<Message,Integer>> focusedLines =
                 bridgedMessages.subList(
-                        Math.max(indexof-100,1),
-                        Math.min(indexof+1,bridgedMessages.size()));
+                        Math.max(endOfThread.getKey()-100,1),
+                        Math.min(endOfThread.getKey()+1,bridgedMessages.size()));
         List<net.kyori.adventure.text.Component> lines = new ArrayList<>(); //length 100
 
         for (Map.Entry<Message,Integer> entry: focusedLines) {
-            System.out.println("depth1 = "+entry.getValue()+" and msg id is "+entry.getKey().id);
+//            System.out.println("depth1 = "+entry.getValue()+" and msg id is "+entry.getKey().id);
             lines.add(
                     net.kyori.adventure.text.Component.text(
                             threadTabber.repeat(entry.getValue())+entry.getKey().sender.name+": "+entry.getKey().content
-                    ).clickEvent(ClickEvent.runCommand("/setcursor "+entry.getKey().id))
+                    ).clickEvent(ClickEvent.runCommand("/setcursor "+entry.getKey().id+" "+entry.getKey().parent))
             );
         }
 
 
         //add cursor line
-        int cursorLength = bridgedMessages.get(indexof).getKey().id.equals(cursorLocation.get(player)) ? bridgedMessages.get(indexof).getValue()+1 : bridgedMessages.get(indexof).getValue();
         lines.add(
-                Component.text(threadTabber.repeat(cursorLength)).append(
+                Component.text(threadTabber.repeat(endOfThread.getValue())).append(
                         Component.text(">"+player.getName()+"<").color(TextColor.color(255,0,255)).append(
                                 Component.text(":______________").color(TextColor.color(255,255,255)))));
 
         //add small aftermessages
 
         focusedLines=(bridgedMessages.subList(
-                Math.min(indexof+1,bridgedMessages.size()),
-                Math.min(indexof+4,bridgedMessages.size())));
+                Math.min(endOfThread.getKey()+1,bridgedMessages.size()),
+                Math.min(endOfThread.getKey()+4,bridgedMessages.size())));
 
         for (Map.Entry<Message,Integer> entry: focusedLines) {
-            System.out.println("depth2 = "+entry.getValue());
+//            System.out.println("depth2 = "+entry.getValue());
             lines.add(
                     net.kyori.adventure.text.Component.text(
                             threadTabber.repeat(entry.getValue())+entry.getKey().sender.name+": "+entry.getKey().content
-                    ).clickEvent(ClickEvent.runCommand("/setcursor "+entry.getKey().id))
+                    ).clickEvent(ClickEvent.runCommand("/setcursor "+entry.getKey().id+" "+entry.getKey().parent))
             );
         }
-
-
-
 
 
 
@@ -165,21 +142,12 @@ public class ChatManager implements Listener {
         while(lines.size()<100){
             lines.add(0, net.kyori.adventure.text.Component.text(""));
         }
-//            System.out.println("UPDATD CHAT FOR "+player.getName());
         lines.forEach(line -> {
             ((CraftPlayer)player).getHandle().connection.getConnection().channel.write(new ClientboundSystemChatPacket(line, false));
         });
         if(playerMessagePacketCache.get(player)!=null){
             for (List<Object> messagePackets: playerMessagePacketCache.get(player).values()) {
-                messagePackets.forEach(packetObject -> {
-//                    if(packetObject instanceof ClientboundSystemChatPacket packet){
-                        ((CraftPlayer)player).getHandle().connection.getConnection().channel.write(packetObject);
-//                    }
-//
-//                    if(packetObject instanceof ClientboundPlayerChatPacket packet){
-//                        ((CraftPlayer)player).getHandle().connection.connection.channel.write(packet);
-//                    }
-                });
+                messagePackets.forEach(packetObject ->  ((CraftPlayer)player).getHandle().connection.getConnection().channel.write(packetObject));
             }
         }
     }
@@ -218,6 +186,16 @@ public class ChatManager implements Listener {
 //        Bukkit.getServer().getOnlinePlayers().forEach(player -> {((CraftPlayer)player).getHandle().connection.connection.channel.pipeline().remove("threadingChatHandler");});
     }
 
+    static void addMessage(Message message){
+        System.out.println("=====================================================================================================================================================================================");
+        System.out.println("Added a message ID:"+message.id+" PARENT: "+message.parent+" CONTENT:"+message.content);
+        System.out.println("=====================================================================================================================================================================================");
+        Map.Entry<Integer,Integer> endOfThread = getEndOfThread(message.parent);
+        bridgedMessages.add(endOfThread.getKey()+1, new AbstractMap.SimpleEntry<>(message,endOfThread.getValue()));
+        updateAllChats();
+    }
+
+
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event){
@@ -231,43 +209,9 @@ public class ChatManager implements Listener {
     }
     static void listenToPlayer(Player player){
         cursorLocation.put(player,rootSnowflake);
-        ((CraftPlayer)player).getHandle().connection=new PlayerChatIntercepter(((CraftPlayer)player).getHandle().server,((CraftPlayer)player).getHandle().connection.connection,((CraftPlayer)player).getHandle().connection.player, player);
+        ((CraftPlayer)player).getHandle().connection=new PlayerChatInterceptor(((CraftPlayer)player).getHandle().server,((CraftPlayer)player).getHandle().connection.connection,((CraftPlayer)player).getHandle().connection.player, player);
     }
-    static class PlayerChatIntercepter extends ServerGamePacketListenerImpl{
 
-        Player playerr;
-        public PlayerChatIntercepter(MinecraftServer server, Connection connection, ServerPlayer player, Player player2) {
-            super(server, connection, player);
-            playerr=player2;
-        }
-
-        @Override
-        public void send(Packet<?> packet, @Nullable PacketSendListener callbacks) {
-            if(packet instanceof ClientboundSystemChatPacket || packet instanceof ClientboundPlayerChatPacket){
-                System.out.println("WE GOT ONE ");
-                int currentTick = Bukkit.getServer().getCurrentTick();
-                playerMessagePacketCache.putIfAbsent(playerr, new HashMap<>());
-                playerMessagePacketCache.get(playerr).putIfAbsent(currentTick, new ArrayList<>());
-//                        playerMessagePacketCache.get(playerr).get(currentTick).add((new ClientboundSystemChatPacket(packet.adventure$content(), identifierString + packet.content(), packet.overlay())));
-                playerMessagePacketCache.get(playerr).get(currentTick).add(packet);
-                if (!tickScheduled) {
-                    scheduler.schedule(new Runnable() {
-                        public void run() {
-                            for (Map.Entry<Player, Map<Integer, List<Object>>> entry : playerMessagePacketCache.entrySet()) {
-                                if (entry.getValue().remove(currentTick) != null) {
-                                    updateChat(entry.getKey());
-                                }
-                                ;
-                            }
-                        }
-                    }, 10, SECONDS);
-                    tickScheduled = true;
-                }
-            }
-            super.send(packet, callbacks);
-
-        }
-    }
 
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
     static boolean tickScheduled = false;
@@ -279,13 +223,17 @@ public class ChatManager implements Listener {
     public static void onMCChat(AsyncPlayerChatEvent event){
 
 
-        botInstance.allBridgesBroadcast("<"+event.getPlayer().getName()+">",event.getMessage());
+//        botInstance.allBridgesBroadcast("<"+event.getPlayer().getName()+">",event.getMessage());
 
-        int indexof= getEndOfThread(cursorLocation.get(event.getPlayer()));
-        int depth = bridgedMessages.get(indexof).getKey().id.equals(cursorLocation.get(event.getPlayer())) ? bridgedMessages.get(indexof).getValue()+1 : bridgedMessages.get(indexof).getValue();
+//        int indexof = getEndOfThread(cursorLocation.get(event.getPlayer()));
+//        int depth = bridgedMessages.get(indexof).getKey().id.equals(cursorLocation.get(event.getPlayer())) ? bridgedMessages.get(indexof).getValue()+1 : bridgedMessages.get(indexof).getValue();
 
         Message fakemsg = fakeMessage(event.getPlayer(),event.getMessage(),cursorLocation.get(event.getPlayer()));
-        bridgedMessages.add(indexof+1, new AbstractMap.SimpleEntry<>(fakemsg,depth));
+        System.out.println("FAKE PARENT IS "+cursorLocation.get(event.getPlayer()));
+        addMessage(fakemsg);
+        botInstance.uploadLocalMessage(fakemsg);
+
+//        bridgedMessages.add(indexof+1, new AbstractMap.SimpleEntry<>(fakemsg,depth));
 //        bridgedMessages2.add(new AbstractMap.SimpleEntry<>(fakemsg,getDepthOfMessage(fakemsg)));
 
 
@@ -296,22 +244,67 @@ public class ChatManager implements Listener {
                     ChatColor.RESET);
             event.setFormat(newFormat);
         }
-        Bukkit.getScheduler().runTaskLater(mainPluginInstance, new Runnable() {
-            @Override
-            public void run() {
-                updateAllChats();
-            }
-        }, 1);
+//        Bukkit.getScheduler().runTaskLater(mainPluginInstance, new Runnable() {
+//            @Override
+//            public void run() {
+//                updateAllChats();
+//            }
+//        }, 1);
         event.setCancelled(true);
 
 
     }
+
+
+
+    static class PlayerChatInterceptor extends ServerGamePacketListenerImpl{
+
+        Player playerr;
+        public PlayerChatInterceptor(MinecraftServer server, Connection connection, ServerPlayer player, Player player2) {
+            super(server, connection, player);
+            playerr=player2;
+        }
+
+        @Override
+        public void send(Packet<?> packet, @Nullable PacketSendListener callbacks) {
+            if(packet instanceof ClientboundSystemChatPacket || packet instanceof ClientboundPlayerChatPacket){
+                System.out.println("WE GOT ONE ");
+                int currentTick = Bukkit.getServer().getCurrentTick();
+                playerMessagePacketCache.putIfAbsent(playerr, new HashMap<>());
+                playerMessagePacketCache.get(playerr).putIfAbsent(currentTick, new ArrayList<>());
+                playerMessagePacketCache.get(playerr).get(currentTick).add(packet);
+                if (!tickScheduled) {
+                    scheduler.schedule(() -> {
+                        for (Map.Entry<Player, Map<Integer, List<Object>>> entry : playerMessagePacketCache.entrySet()) {
+                            if (entry.getValue().remove(currentTick) != null) updateChat(entry.getKey());
+                        }
+                    }, 10, SECONDS);
+                    tickScheduled = true;
+                }
+            }
+            super.send(packet, callbacks);
+
+        }
+    }
+
+
+
+
+
+
+
     public static class SetCursorCommand implements CommandExecutor {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
-            if(args.length>0){
-                cursorLocation.put(sender,new Snowflake(args[0]));
+            if(args.length>1){
+                Snowflake snowflake1 = new Snowflake(args[0]);
+                Snowflake snowflake2 = new Snowflake(args[1]);
+                if(snowflake1.equals(cursorLocation.get(sender))){
+                    cursorLocation.put(sender,snowflake2);
+                }else{
+                    cursorLocation.put(sender,snowflake1);
+                }
                 updateChat(sender);
                 return true;
             }
