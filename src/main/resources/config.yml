@@ -1,0 +1,18 @@
+# Color minecraft usernames in minecraft chat
+coloredMinecraftNames: true
+
+# Color euphoria names in minecraft chat
+coloredEuphNames: true
+
+# if true, kills a bridge after maximumBridgeLife seconds of inactivity from both sides
+# otherwise, always kills a bridge after maximumBridgeLife seconds.
+bridgeInactivityCheck: true #UNIMPLEMENTED
+
+# how long in seconds to wait until closing a bridge
+# -1 disables auto-closing
+maximumBridgeLife: 300 #UNIMPLEMENTED
+
+# attempts to recreate threading in minecraft
+# also toggles bridging messages not directly in the bridge thread
+# will also bridge threading inter-euph rooms
+threadedChat: false #UNIMPLEMENTED
