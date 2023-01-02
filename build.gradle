@@ -24,7 +24,6 @@ jar {
     }
 }
 reobfJar {
-    outputJar.set(layout.buildDirectory.file("/HDD2TB/Testing Version Servers/1.19.2/plugins/update//EuphBridgeBot-${project.version}.jar"))
 }
 build{
     dependsOn(reobfJar)
