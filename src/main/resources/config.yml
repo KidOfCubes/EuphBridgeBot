@@ -1,7 +1,6 @@
 
 # rooms to have the bot connect to
 roomEndpoints:
-  - "wss://euphoria.io/room/testing/ws"
   - "wss://euphoria.io/room/bots/ws"
 
 # Color minecraft usernames in minecraft chat
@@ -11,12 +10,12 @@ coloredMinecraftNames: true
 coloredEuphNames: true
 
 # if true, closes bridges early after bridgeInactivityPeriod seconds of inactivity from any bridge
-bridgeInactivityCheck: true #UNIMPLEMENTED
+bridgeInactivityCheck: true
 
 bridgeInactivityPeriod: 600
 
 # how long in seconds to wait before closing a bridge regardless of activity
-# -1 disables auto-closing
+# -1 disables
 maximumBridgeLife: 180
 
 

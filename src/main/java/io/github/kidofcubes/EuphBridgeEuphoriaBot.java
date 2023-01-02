@@ -26,20 +26,25 @@ public class EuphBridgeEuphoriaBot extends EuphoriaBot {
     Map<RoomConnection,Integer> lastMessageTimes = new HashMap<>();
     public EuphBridgeEuphoriaBot(String name) {
         super(name);
-        Bukkit.getServer().getScheduler().runTaskTimer(mainPluginInstance,() -> {
-            List<RoomConnection> inactivebridges = new ArrayList<>();
-            lastMessageTimes.forEach((key, value) -> {
-                if(Bukkit.getServer().getCurrentTick()-value>(bridgeInactivityPeriod*20)){
-                    key.sendEuphoriaMessage(new Message("Bridge closed due to inactivity",openBridges.get(key).parent));
-                    Bukkit.broadcastMessage("Bridge to &"+key.roomName()+" due to inactivity");
-                    openBridges.remove(key);
-                    inactivebridges.add(key);
+        if(bridgeInactivityCheck) {
+            new Timer().scheduleAtFixedRate(new TimerTask() {
+                public void run() {
+                    List<RoomConnection> inactivebridges = new ArrayList<>();
+                    lastMessageTimes.forEach((key, value) -> {
+                        if ((int) (System.currentTimeMillis() / 1000) - value > (bridgeInactivityPeriod)) {
+                            Bukkit.broadcastMessage("Bridge to &" + key.roomName() + " closed due to inactivity");
+                            key.sendEuphoriaMessage(new Message("Bridge closed due to inactivity", openBridges.get(key).parent));
+                            openBridges.remove(key);
+                            inactivebridges.add(key);
+                        }
+                    });
+                    for (RoomConnection connection : inactivebridges) {
+                        lastMessageTimes.remove(connection);
+                    }
+
                 }
-            });
-            for(RoomConnection connection : inactivebridges){
-                lastMessageTimes.remove(connection);
-            }
-        },0,60*1000);
+            },0,5*1000);
+        }
     }
 
 
@@ -68,13 +73,17 @@ public class EuphBridgeEuphoriaBot extends EuphoriaBot {
                         if (openBridges.get(connection).equals(message)) {
                             connection.sendEuphoriaMessage(new Message("Bridge closed", message.parent));
                             Bukkit.broadcastMessage("Bridge in &"+connection.roomName()+" closed");
-                            lastMessageTimes.remove(connection);
+                            if(bridgeInactivityCheck) {
+                                lastMessageTimes.remove(connection);
+                            }
                             openBridges.remove(connection);
                         }
                     }
                 }
             }, (int)(maximumBridgeLife*1000));
-            lastMessageTimes.put(connection,Bukkit.getServer().getCurrentTick());
+            if(bridgeInactivityCheck) {
+                lastMessageTimes.put(connection, (int) (System.currentTimeMillis() / 1000));
+            }
             return;
 
         }
@@ -82,7 +91,9 @@ public class EuphBridgeEuphoriaBot extends EuphoriaBot {
             if(openBridges.containsKey(connection)){
                 connection.sendEuphoriaMessage(new Message("Bridge closed",message.parent));
                 openBridges.remove(connection);
-                lastMessageTimes.remove(connection);
+                if(bridgeInactivityCheck) {
+                    lastMessageTimes.remove(connection);
+                }
             }else{
                 connection.sendEuphoriaMessage(new Message("Closed the non-existent bridge",message.parent));
             }
@@ -125,8 +136,10 @@ public class EuphBridgeEuphoriaBot extends EuphoriaBot {
         //map message parent
         openBridges.forEach((key, value) -> {
             if(roomSnowflakeMappings.get(key)!=null){
-                if(roomSnowflakeMappings.get(key).get(localMessage.parent)!=null){
+                System.out.println("the parent was "+roomSnowflakeMappings.get(key).get(localMessage.parent));
+                if(roomSnowflakeMappings.get(key).containsKey(localMessage.parent)){
                     key.setName("<"+localMessage.sender.name+">");
+                    System.out.println("the parent was "+roomSnowflakeMappings.get(key).get(localMessage.parent));
                     key.sendEuphoriaMessage(new Message(localMessage.content,roomSnowflakeMappings.get(key).get(localMessage.parent))).thenAccept((sentMessage) -> {
                         roomSnowflakeMappings.get(key).put(localMessage.id,sentMessage.id);
                     });
