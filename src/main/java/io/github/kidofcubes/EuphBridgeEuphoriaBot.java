@@ -136,10 +136,8 @@ public class EuphBridgeEuphoriaBot extends EuphoriaBot {
         //map message parent
         openBridges.forEach((key, value) -> {
             if(roomSnowflakeMappings.get(key)!=null){
-                System.out.println("the parent was "+roomSnowflakeMappings.get(key).get(localMessage.parent));
                 if(roomSnowflakeMappings.get(key).containsKey(localMessage.parent)){
                     key.setName("<"+localMessage.sender.name+">");
-                    System.out.println("the parent was "+roomSnowflakeMappings.get(key).get(localMessage.parent));
                     key.sendEuphoriaMessage(new Message(localMessage.content,roomSnowflakeMappings.get(key).get(localMessage.parent))).thenAccept((sentMessage) -> {
                         roomSnowflakeMappings.get(key).put(localMessage.id,sentMessage.id);
                     });
