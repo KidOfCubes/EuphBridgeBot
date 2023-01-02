@@ -1,5 +1,5 @@
   name: EuphBridgeBot
-  main: io.github.kidofcubes.EuphBridgeBot
+  main: io.github.kidofcubes.Main
   version: 0.1
   author: KidOfCubes
   commands:

@@ -10,19 +10,36 @@ import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Bukkit;
 import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 
 import static io.github.kidofcubes.ChatManager.addMessage;
 import static io.github.kidofcubes.ChatManager.rootSnowflake;
 import static io.github.kidofcubes.ColorUtils.nickColor;
-import static io.github.kidofcubes.EuphBridgeBot.maximumBridgeLife;
+import static io.github.kidofcubes.Main.*;
 
 public class EuphBridgeEuphoriaBot extends EuphoriaBot {
     Map<RoomConnection,Message> openBridges = new HashMap<>();
 
     Map<RoomConnection, BiMap<Snowflake,Snowflake>> roomSnowflakeMappings = new HashMap<>(); //local to room
+
+    Map<RoomConnection,Integer> lastMessageTimes = new HashMap<>();
     public EuphBridgeEuphoriaBot(String name) {
         super(name);
+        Bukkit.getServer().getScheduler().runTaskTimer(mainPluginInstance,() -> {
+            List<RoomConnection> inactivebridges = new ArrayList<>();
+            lastMessageTimes.forEach((key, value) -> {
+                if(Bukkit.getServer().getCurrentTick()-value>(bridgeInactivityPeriod*20)){
+                    key.sendEuphoriaMessage(new Message("Bridge closed due to inactivity",openBridges.get(key).parent));
+                    Bukkit.broadcastMessage("Bridge to &"+key.roomName()+" due to inactivity");
+                    openBridges.remove(key);
+                    inactivebridges.add(key);
+                }
+            });
+            for(RoomConnection connection : inactivebridges){
+                lastMessageTimes.remove(connection);
+            }
+        },0,60*1000);
     }
 
 
@@ -34,39 +51,68 @@ public class EuphBridgeEuphoriaBot extends EuphoriaBot {
     public void onMessage(Message message, RoomConnection connection) {
         if(message.content.equalsIgnoreCase("!openbridge")){
             if(openBridges.containsKey(connection)){
+                openBridges.put(connection,message);
                 Bukkit.broadcastMessage(euphName(message.sender.name)+" moved the bridge in &"+connection.roomName());
                 connection.sendEuphoriaMessage(new Message("Bridge moved",message.parent));
             }else{
+                openBridges.put(connection,message);
                 Bukkit.broadcastMessage(euphName(message.sender.name)+" opened a bridge in &"+connection.roomName());
                 connection.sendEuphoriaMessage(new Message("Bridge opened",message.parent));
             }
-            openBridges.put(connection,message);
             roomSnowflakeMappings.putIfAbsent(connection, HashBiMap.create());
             roomSnowflakeMappings.get(connection).put(rootSnowflake,message.parent);
             new Timer().schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    if(openBridges.get(connection).equals(message)){
-                        openBridges.remove(connection);
-                        connection.sendEuphoriaMessage(new Message("Bridge closed",message.parent));
-
-                        System.out.println("BRIDGE CLOSED");
+                    if(openBridges.containsKey(connection)) {
+                        if (openBridges.get(connection).equals(message)) {
+                            connection.sendEuphoriaMessage(new Message("Bridge closed", message.parent));
+                            Bukkit.broadcastMessage("Bridge in &"+connection.roomName()+" closed");
+                            lastMessageTimes.remove(connection);
+                            openBridges.remove(connection);
+                        }
                     }
                 }
             }, (int)(maximumBridgeLife*1000));
+            lastMessageTimes.put(connection,Bukkit.getServer().getCurrentTick());
+            return;
+
+        }
+        if(message.content.equalsIgnoreCase("!closebridge")){
+            if(openBridges.containsKey(connection)){
+                connection.sendEuphoriaMessage(new Message("Bridge closed",message.parent));
+                openBridges.remove(connection);
+                lastMessageTimes.remove(connection);
+            }else{
+                connection.sendEuphoriaMessage(new Message("Closed the non-existent bridge",message.parent));
+            }
             return;
 
         }
         if(openBridges.get(connection)!=null){
-            System.out.println("DIDNT ADD a message ID:"+message.id+" PARENT: "+message.parent+" CONTENT:"+message.content);
-            System.out.println("CORECT PARENT ID WASSSSSSSSSSSSSSSSSSSSSSSSS: "+openBridges.get(connection).parent);
-            if(roomSnowflakeMappings.get(connection).containsValue(message.parent)){
-                //NEED TO MAP TO LOCAL SNOWFLAKES FIRST
-                System.out.println("ITS HERE THE WORDS ARE HERE ");
-                message.parent=roomSnowflakeMappings.get(connection).inverse().getOrDefault(message.parent,rootSnowflake);
-                roomSnowflakeMappings.get(connection).put(message.id,message.id);
+            if(threadedChat) {
+                if (roomSnowflakeMappings.get(connection).containsValue(message.parent)) {
+                    roomSnowflakeMappings.get(connection).put(message.id, message.id);
+                    message.parent = roomSnowflakeMappings.get(connection).inverse().getOrDefault(message.parent, rootSnowflake);
+
+                    //PARENT IS LOCAL NOW
+                    openBridges.forEach((key, value) -> {
+                        if (!key.equals(connection) && roomSnowflakeMappings.get(key).containsKey(message.parent)) {
+                            key.sendEuphoriaMessage(new Message(message.content, roomSnowflakeMappings.get(key).get(message.parent))).thenAccept((sentMessage) -> {
+                                roomSnowflakeMappings.get(key).put(message.id, sentMessage.id);
+                            });
+                        }
+                    });
+                    addMessage(message);
+
+                }
+            }else{
                 addMessage(message);
-//                Bukkit.broadcastMessage(euphName(message.sender.name)+": "+message.content);
+                openBridges.forEach((key, value) -> {
+                    if (!key.equals(connection)) {
+                        key.sendEuphoriaMessage(new Message(message.content, value.parent));
+                    }
+                });
             }
         }
 
@@ -75,39 +121,28 @@ public class EuphBridgeEuphoriaBot extends EuphoriaBot {
         return ChatColor.of(new Color(nickColor(name))).toString()+name+ChatColor.RESET;
     }
 
-    public void sendToBridges(Message message){
-        openBridges.forEach((key, value) -> {
-            sendToBridge(key,message);
-        });
-    }
-    public void sendToBridge(RoomConnection roomConnection, Message message){
-        //map snowflake
-
-    }
     public void uploadLocalMessage(Message localMessage){
         //map message parent
         openBridges.forEach((key, value) -> {
             if(roomSnowflakeMappings.get(key)!=null){
                 if(roomSnowflakeMappings.get(key).get(localMessage.parent)!=null){
+                    key.setName("<"+localMessage.sender.name+">");
                     key.sendEuphoriaMessage(new Message(localMessage.content,roomSnowflakeMappings.get(key).get(localMessage.parent))).thenAccept((sentMessage) -> {
                         roomSnowflakeMappings.get(key).put(localMessage.id,sentMessage.id);
                     });
+                    key.setName(this.name);
                 }
             }
         });
     }
-
-    public void allBridgesBroadcast(String name, String text){
+    public void bridgeMessage(String name, String message){
+        Message msg = new Message(message,null);
         openBridges.forEach((key, value) -> {
-            if (name != null) {
-                key.setName(name);
-            }
-            key.sendEuphoriaMessage(new Message(text, value.parent));
-            if (name != null) {
-                key.setName(name);
-            }
+            msg.parent = value.parent;
+            key.setName(name);
+            key.sendEuphoriaMessage(msg);
+            key.setName(this.name);
         });
     }
-
 
 }

@@ -2,16 +2,11 @@ plugins {
     id 'java'
     id("io.papermc.paperweight.userdev") version "1.4.0"
 }
-//java {
-//    toolchain {
-//        languageVersion = JavaLanguageVersion.of(17)
-//    }
-//}
-sourceCompatibility = 19
-targetCompatibility = 19
+sourceCompatibility = 17
+targetCompatibility = 17
 
 group 'io.github.kidofcubes'
-version '1.0-SNAPSHOT'
+version '1.0'
 
 repositories {
     mavenCentral()
@@ -20,7 +15,6 @@ repositories {
 
 dependencies {
     implementation "io.github.kidofcubes:euphoria-api:0.1.0"
-//    compileOnly "org.spigotmc:spigot:1.19.2-R0.1-SNAPSHOT:remapped-mojang"
     paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:1.19.2-R0.1-SNAPSHOT")
 }
 
@@ -28,42 +22,10 @@ jar {
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
-//    destinationDirectory.set(file("run/plugins/update"))
 }
 reobfJar {
-    outputJar.set(layout.buildDirectory.file("F:\\Testing Version Servers\\1.19.2paper\\plugins\\update\\EuphBridgeBot-${project.version}.jar"))
+//    outputJar.set(layout.buildDirectory.file("libs/EuphBridgeBot-${project.version}.jar"))
 }
-//tasks{
-//    assemble {
-//        dependsOn(reobfJar)
-//    }
-//}
-
-//task execFoo {
-//    doLast {
-//        def f = new File("${buildDir}/SpecialSource-1.11.0-shaded.jar")
-//        if (!f.exists()) {
-//            new URL('https://repo.maven.apache.org/maven2/net/md-5/SpecialSource/1.11.0/SpecialSource-1.11.0-shaded.jar').withInputStream{ i -> f.withOutputStream{ it << i }}
-//        }
-//        JavaExec {
-//            workingDir file("${buildDir}")
-//            executable 'java'
-//            args '-cp "SpecialSource-1.11.0-shaded.jar;%USERPROFILE%/.m2/repository/org/spigotmc/spigot/1.19.2-R0.1-SNAPSHOT/spigot-1.19.2-R0.1-SNAPSHOT-remapped-mojang.jar" ' +
-//                    "net.md_5.specialsource.SpecialSource --live -i .\\libs\\EuphBridgeBot-1.0-SNAPSHOT.jar -o test.jar -m \"" +
-//                    "\$home/.m2/repository/org/spigotmc/minecraft-server/1.19.2-R0.1-SNAPSHOT/minecraft-server-1.19.2-R0.1-SNAPSHOT-maps-mojang.txt\" --reverse"
-//            /*
-//            java -cp SpecialSource-1.11.0-shaded.jar;%USERPROFILE%/.m2/repository/org/spigotmc/spigot/1.19.2-R0.1-SNAPSHOT/spigot-1.19.2-R0.1-SNAPSHOT-remapped-mojang.jar net.md_5.specialsource.SpecialSource --live -i ${jar.archiveFile} -o ${jar.archiveFile}-obf.jar -m %USERPROFILE%/.m2/repository/org/spigotmc/minecraft-server/1.19.2-R0.1-SNAPSHOT/minecraft-server-1.19.2-R0.1-SNAPSHOT-maps-mojang.txt --reverse
-//            java -cp $HOME/.m2/repository/net/md-5/SpecialSource/1.11.0/SpecialSource-1.11.0-shaded.jar:$HOME/.m2/repository/org/spigotmc/spigot/1.18-R0.1-SNAPSHOT/spigot-1.18-R0.1-SNAPSHOT-remapped-obf.jar net.md_5.specialsource.SpecialSource --live -i $PLUGIN-obf.jar -o $PLUGIN.jar -m $HOME/.m2/repository/org/spigotmc/minecraft-server/1.18-R0.1-SNAPSHOT/minecraft-server-1.18-R0.1-SNAPSHOT-maps-spigot.csrg
-//             */
-//        }
-//        println "Executedd!"
-//    }
-//}
-//
-//
-//task test(type: JavaExec) {
-//    mainClass = "pkg.MainClass"
-//    classpath = ""
-//    args = ["arg1", "arg2"]
-//}
-//
+build{
+    dependsOn(reobfJar)
+}
