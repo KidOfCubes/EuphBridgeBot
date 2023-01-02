@@ -2,34 +2,46 @@ package io.github.kidofcubes;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.java_websocket.enums.CloseHandshakeType;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
-public class EuphBridgeBot extends JavaPlugin {
+public class Main extends JavaPlugin {
 
     Logger logger=getLogger();
-    EuphBridgeEuphoriaBot bot=new EuphBridgeEuphoriaBot("McBridgeBot");
+    EuphBridgeEuphoriaBot bot;
 
     FileConfiguration config;
+
+    public static List<String> roomList = new ArrayList<>();
     public static boolean coloredMinecraftNames = true;
     public static boolean coloredEuphNames = true;
     public static boolean bridgeInactivityCheck = true;
+    public static int bridgeInactivityPeriod = 600;
     public static double maximumBridgeLife = 60*10; //in seconds
-    public static boolean attemptThreadedChat = false;
+    public static boolean threadedChat = false;
+    public static int threadedChatMessageLimit = 1000;
+    public static int threadedChatNormalChatLife = 10;
+    public static String indentationText = "   ";
 
-    public static EuphBridgeBot mainPluginInstance;
+
+
+    public static Main mainPluginInstance;
 
     @Override
     public void onEnable() {
         loadConfig();
         mainPluginInstance=this;
+        bot = new EuphBridgeEuphoriaBot("McBridgeBot");
 
         getServer().getPluginManager().registerEvents(new ChatManager(bot),this);
         try {
-            bot.joinRoom(new URI("wss://euphoria.io/room/testing/ws"));
+            for(String roomURL : roomList){
+                bot.joinRoom(new URI(roomURL));
+            }
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
@@ -38,19 +50,22 @@ public class EuphBridgeBot extends JavaPlugin {
     }
 
     void loadConfig(){
+        this.saveDefaultConfig();
         config=this.getConfig();
-        config.addDefault("coloredMinecraftNames", coloredMinecraftNames);
-        config.addDefault("coloredEuphNames", coloredEuphNames);
-        config.addDefault("bridgeInactivityCheck", bridgeInactivityCheck);
-        config.addDefault("maximumBridgeLife", maximumBridgeLife);
-        config.addDefault("attemptThreadedChat", attemptThreadedChat);
-        config.options().copyDefaults(true);
-        saveConfig();
+
+        roomList=config.getStringList("roomEndpoints");
+
         coloredMinecraftNames=config.getBoolean("coloredMinecraftNames");
         coloredEuphNames=config.getBoolean("coloredEuphNames");
         bridgeInactivityCheck=config.getBoolean("bridgeInactivityCheck");
+        bridgeInactivityPeriod=config.getInt("bridgeInactivityPeriod");
         maximumBridgeLife=config.getDouble("maximumBridgeLife");
-        attemptThreadedChat=config.getBoolean("attemptThreadedChat");
+
+        threadedChat=config.getBoolean("threadedChat.enabled");
+        indentationText=config.getString("threadedChat.indentationText");
+        threadedChatMessageLimit=config.getInt("threadedChat.messageLimit");
+        threadedChatNormalChatLife=config.getInt("threadedChat.normalChatLife");
+
     }
 
     @Override
